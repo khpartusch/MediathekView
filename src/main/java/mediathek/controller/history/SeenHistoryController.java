@@ -13,8 +13,8 @@ public class SeenHistoryController extends MVUsedUrls<DownloadHistoryChangedEven
         super("history.txt", Daten.getSettingsDirectory_String(), DownloadHistoryChangedEvent.class);
     }
 
-    /**
-     * Check if URL string has already been seen or handled in abo list.
+     /**
+     * Check if URL string has already been seen.
      * This normally checks if the URL is contained in our history list.
      * A special case are Akamai´s CDN URLs:
      * Serveral subdomains (and most of the time they are separate servers) provide the same movie.
@@ -23,9 +23,7 @@ public class SeenHistoryController extends MVUsedUrls<DownloadHistoryChangedEven
      * @param strUrl the URL as string
      * @return true if URL was already seen, false otherwise
      */
-    @Override
-    public boolean checkIfAlreadyHandled(String strUrl) {
-        //wenn url gefunden, dann true zurück
+    public boolean checkCdnDuplicate(String strUrl) {
         final HttpUrl url = HttpUrl.parse(strUrl);
         if (url == null)
             return false;

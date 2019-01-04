@@ -25,7 +25,7 @@ import mSearch.daten.DatenFilm;
 import mSearch.daten.ListeFilme;
 import mediathek.config.Daten;
 import mediathek.config.MVColor;
-import mediathek.controller.history.MVUsedUrls;
+import mediathek.controller.history.SeenHistoryController;
 import mediathek.controller.starter.Start;
 import mediathek.daten.DatenDownload;
 import mediathek.tool.table.MVTable;
@@ -40,7 +40,7 @@ public class CellRendererFilme extends CellRendererBaseWithStart {
     private static final Logger logger = LogManager.getLogger(CellRendererFilme.class);
     private final Icon selectedStopIcon;
     private final Icon normalStopIcon;
-    private final MVUsedUrls history;
+    private final SeenHistoryController history;
     private final Icon selectedDownloadIcon;
     private final Icon normalDownloadIcon;
     private final Icon selectedPlayIcon;
@@ -158,10 +158,14 @@ public class CellRendererFilme extends CellRendererBaseWithStart {
             if (live) {
                 // bei livestreams keine History anzeigen
                 c.setForeground(MVColor.FILM_LIVESTREAM.color);
-            } else if (history.checkIfAlreadyHandled(datenFilm.getUrlHistory())) {
-                if (!isSelected) {
-                    c.setBackground(MVColor.FILM_HISTORY.color);
+            } else if (history.checkCdnDuplicate(datenFilm.getUrlHistory())) {
+                if (!isSelected)
+                    c.setBackground(Color.ORANGE);
+                if (history.checkIfAlreadyHandled(datenFilm.getUrlHistory())) {
+                    if (!isSelected)
+                        c.setBackground(MVColor.FILM_HISTORY.color);
                 }
+
             } else if (datenFilm.isNew()) {
                 // fix #259
                 if (!isSelected)
