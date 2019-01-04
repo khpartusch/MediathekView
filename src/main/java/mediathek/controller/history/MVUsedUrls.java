@@ -24,6 +24,7 @@ import mSearch.daten.ListeFilme;
 import mSearch.tool.GermanStringSorter;
 import mediathek.config.Daten;
 import mediathek.gui.messages.history.HistoryChangedEvent;
+import okhttp3.HttpUrl;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -32,17 +33,17 @@ import java.lang.reflect.InvocationTargetException;
 import java.nio.file.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.ConcurrentSkipListSet;
 
 @SuppressWarnings("serial")
 public class MVUsedUrls<T extends HistoryChangedEvent> {
 
     private static final Logger logger = LogManager.getLogger(MVUsedUrls.class);
     private final SimpleDateFormat SDF = new SimpleDateFormat("dd.MM.yyyy");
-    private final Set<String> listeUrls = new ConcurrentSkipListSet<>();
+    protected final Set<HttpUrl> listeUrls = new HashSet<>();
     private final List<MVUsedUrl> listeUrlsSortDate = Collections.synchronizedList(new LinkedList<>());
     private final Class<T> clazz;
     private Path urlPath;
+
     public MVUsedUrls(String fileName, String settingsDir, Class<T> clazz) {
         this.clazz = clazz;
 
@@ -69,7 +70,7 @@ public class MVUsedUrls<T extends HistoryChangedEvent> {
             arrayFilms.forEach(listeFilmeHistory::remove);
         } else {
             ArrayList<DatenFilm> neueFilme = new ArrayList<>();
-            arrayFilms.stream().filter(film -> !urlPruefen(film.getUrlHistory()))
+            arrayFilms.stream().filter(film -> !checkIfAlreadyHandled(film.getUrlHistory()))
                     .forEach(film -> {
                         neueFilme.add(film);
                         listeFilmeHistory.add(film);
@@ -101,9 +102,12 @@ public class MVUsedUrls<T extends HistoryChangedEvent> {
         sendChangeMessage();
     }
 
-    public boolean urlPruefen(String urlFilm) {
-        //wenn url gefunden, dann true zurück
-        return listeUrls.contains(urlFilm);
+    public boolean checkIfAlreadyHandled(String strUrl) {
+        final HttpUrl url = HttpUrl.parse(strUrl);
+        if (url == null)
+            return false;
+
+        return listeUrls.contains(url);
     }
 
     public synchronized List<MVUsedUrl> getSortedList() {
@@ -210,17 +214,20 @@ public class MVUsedUrls<T extends HistoryChangedEvent> {
         sendChangeMessage();
     }
 
-    public synchronized void zeileSchreiben(String thema, String titel, String url) {
+    public synchronized void zeileSchreiben(String thema, String titel, String sUrl) {
         String datum = SDF.format(new Date());
-        listeUrls.add(url);
-        listeUrlsSortDate.add(new MVUsedUrl(datum, thema, titel, url));
+        HttpUrl url = HttpUrl.parse(sUrl);
+        if (url != null) {
+            listeUrls.add(url);
+            listeUrlsSortDate.add(new MVUsedUrl(datum, thema, titel, sUrl));
+        }
 
         checkUrlFilePath();
 
         try (OutputStream os = Files.newOutputStream(urlPath, StandardOpenOption.APPEND);
              OutputStreamWriter osw = new OutputStreamWriter(os);
              BufferedWriter bufferedWriter = new BufferedWriter(osw)) {
-            final MVUsedUrl usedUrl = new MVUsedUrl(datum, thema, titel, url);
+            final MVUsedUrl usedUrl = new MVUsedUrl(datum, thema, titel, sUrl);
             bufferedWriter.write(usedUrl.getUsedUrl());
         } catch (Exception ex) {
             logger.error("zeileSchreiben(...)", ex);
@@ -239,7 +246,9 @@ public class MVUsedUrls<T extends HistoryChangedEvent> {
              BufferedWriter bufferedWriter = new BufferedWriter(osw)) {
 
             for (DatenFilm film : arrayFilms) {
-                listeUrls.add(film.getUrlHistory());
+                HttpUrl url = HttpUrl.parse(film.getUrlHistory());
+                if (url != null)
+                    listeUrls.add(url);
 
                 final MVUsedUrl usedUrl = new MVUsedUrl(datum, film.getThema(), film.getTitle(), film.getUrlHistory());
                 listeUrlsSortDate.add(usedUrl);
@@ -278,8 +287,11 @@ public class MVUsedUrls<T extends HistoryChangedEvent> {
             String zeile;
             while ((zeile = in.readLine()) != null) {
                 MVUsedUrl mvuu = MVUsedUrl.getUrlAusZeile(zeile);
-                listeUrls.add(mvuu.getUrl());
-                listeUrlsSortDate.add(mvuu);
+                HttpUrl url = HttpUrl.parse(mvuu.getUrl());
+                if (url != null) {
+                    listeUrls.add(url);
+                    listeUrlsSortDate.add(mvuu);
+                }
             }
         } catch (Exception ex) {
             logger.error("listeBauen()", ex);
@@ -307,9 +319,11 @@ public class MVUsedUrls<T extends HistoryChangedEvent> {
                  OutputStreamWriter osw = new OutputStreamWriter(os);
                  BufferedWriter bufferedWriter = new BufferedWriter(osw)) {
                 for (MVUsedUrl mvuu : mvuuList) {
-                    listeUrls.add(mvuu.getUrl());
-                    listeUrlsSortDate.add(mvuu);
-
+                    HttpUrl url = HttpUrl.parse(mvuu.getUrl());
+                    if (url != null) {
+                        listeUrls.add(url);
+                        listeUrlsSortDate.add(mvuu);
+                    }
                     bufferedWriter.write(mvuu.getUsedUrl());
                 }
             } catch (Exception ex) {

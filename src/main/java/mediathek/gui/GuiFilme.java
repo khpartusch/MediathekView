@@ -992,7 +992,7 @@ public class GuiFilme extends JPanel {
             //History
             res.ifPresent(film -> {
                 JMenuItem miHistory;
-                if (daten.getSeenHistoryList().urlPruefen(film.getUrlHistory())) {
+                if (daten.getSeenHistoryList().checkIfAlreadyHandled(film.getUrlHistory())) {
                     miHistory = new JMenuItem("Film als ungesehen markieren");
                     miHistory.addActionListener(new BeobHistory(false));
                 } else {
