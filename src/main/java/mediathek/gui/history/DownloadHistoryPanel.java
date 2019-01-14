@@ -11,6 +11,13 @@ public final class DownloadHistoryPanel extends PanelErledigteUrls {
         super(d);
         workList = daten.getSeenHistoryController();
 
+        jTable1.setModel(createDataModel());
+        setsum();
+        jTable1.getModel().addTableModelListener(e -> {
+            System.out.println("TABLE CHANGED EVENT");
+            setsum();
+        });
+
         d.getMessageBus().subscribe(this);
     }
 

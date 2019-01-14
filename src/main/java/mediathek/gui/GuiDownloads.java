@@ -370,7 +370,7 @@ public class GuiDownloads extends JPanel {
 
     class ShowDownloadHistoryDialog extends StandardCloseDialog {
         public ShowDownloadHistoryDialog(Frame owner) {
-            super(owner,"Download-Historie", true);
+            super(owner,"Download-Historie", false);
         }
 
         @Override

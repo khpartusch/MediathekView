@@ -19,6 +19,8 @@
  */
 package mediathek.gui.history;
 
+import ca.odell.glazedlists.gui.TableFormat;
+import ca.odell.glazedlists.swing.GlazedListsSwing;
 import mSearch.daten.DatenFilm;
 import mediathek.MediathekGui;
 import mediathek.config.Daten;
@@ -34,6 +36,7 @@ import mediathek.tool.TModel;
 import org.jetbrains.annotations.NotNull;
 
 import javax.swing.*;
+import javax.swing.table.TableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -55,21 +58,22 @@ public abstract class PanelErledigteUrls extends JPanel {
         jButtonLoeschen.setEnabled(false);
         jButtonExport.addActionListener((ActionEvent e) -> export());
         initListeners();
+
     }
 
     protected void changeListHandler() {
-        if (jToggleButtonLaden.isSelected())
-            updateModelAndRecalculate(createDataModel());
+        /*if (jToggleButtonLaden.isSelected())
+            updateModelAndRecalculate(createDataModel());*/
     }
 
     private void initListeners() {
         jToggleButtonLaden.addActionListener((ActionEvent e) -> {
             if (jToggleButtonLaden.isSelected()) {
                 jButtonLoeschen.setEnabled(true);
-                updateModelAndRecalculate(createDataModel());
+                //updateModelAndRecalculate(createDataModel());
             } else {
                 jButtonLoeschen.setEnabled(false);
-                updateModelAndRecalculate(new TModel(null, MVUsedUrlModelHelper.TITLE_HEADER));
+                //updateModelAndRecalculate(new TModel(null, MVUsedUrlModelHelper.TITLE_HEADER));
             }
         });
 
@@ -86,12 +90,72 @@ public abstract class PanelErledigteUrls extends JPanel {
         setsum();
     }
 
-    protected TModel createDataModel() {
-        final var data = MVUsedUrlModelHelper.getObjectData(workList.getListeUrlsSortDate());
-        return new TModel(data, MVUsedUrlModelHelper.TITLE_HEADER);
+    class MyTableFormat implements TableFormat<MVUsedUrl> {
+
+        @Override
+        public int getColumnCount() {
+            return 4;
+        }
+
+        @Override
+        public String getColumnName(int i) {
+            String result;
+            switch (i) {
+                case 0:
+                    result = "Datum";
+                    break;
+
+                case 1:
+                    result = "Thema";
+                    break;
+
+                case 2:
+                    result = "Titel";
+                    break;
+
+                case 3:
+                    result = "URL";
+                    break;
+
+                default:
+                    throw new IllegalStateException();
+            }
+            return result;
+        }
+
+        @Override
+        public Object getColumnValue(MVUsedUrl mvUsedUrl, int i) {
+            String result;
+
+            switch(i) {
+                case 0:
+                    result = mvUsedUrl.getDatum();
+                    break;
+
+                case 1:
+                    result = mvUsedUrl.getThema();
+                    break;
+
+                case 2:
+                    result = mvUsedUrl.getTitel();
+                    break;
+
+                case 3:
+                    result = mvUsedUrl.getUrl();
+                    break;
+
+                    default:
+                        throw new IllegalStateException();
+            }
+
+            return result;
+        }
+    }
+    protected TableModel createDataModel() {
+        return GlazedListsSwing.eventTableModelWithThreadProxyList(workList.getListeUrlsSortDate(), new MyTableFormat());
     }
 
-    private void setsum() {
+    protected void setsum() {
         if (jTable1.getRowCount() <= 0) {
             jLabelSum.setText("");
         } else {

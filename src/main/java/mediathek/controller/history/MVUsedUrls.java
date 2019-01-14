@@ -19,6 +19,8 @@
  */
 package mediathek.controller.history;
 
+import ca.odell.glazedlists.BasicEventList;
+import ca.odell.glazedlists.EventList;
 import mSearch.daten.DatenFilm;
 import mSearch.daten.ListeFilme;
 import mSearch.tool.GermanStringSorter;
@@ -43,11 +45,7 @@ public abstract class MVUsedUrls<T extends HistoryChangedEvent> {
      * Stores only URLs
      */
     private final Set<String> listeUrls = Collections.synchronizedSet(new HashSet<>());
-    /**
-     * The actual storage for all history data.
-     * Will be written to file.
-     */
-    private final List<MVUsedUrl> listeUrlsSortDate = Collections.synchronizedList(new LinkedList<>());
+    private final EventList<MVUsedUrl> urlList = new BasicEventList<>();
     private final Class<T> clazz;
     private Path urlPath;
 
@@ -64,8 +62,8 @@ public abstract class MVUsedUrls<T extends HistoryChangedEvent> {
         listeBauen();
     }
 
-    public List<MVUsedUrl> getListeUrlsSortDate() {
-        return listeUrlsSortDate;
+    public EventList<MVUsedUrl> getListeUrlsSortDate() {
+        return urlList;
     }
 
     public synchronized void setGesehen(boolean gesehen, ArrayList<DatenFilm> arrayFilms, ListeFilme listeFilmeHistory) {
@@ -97,7 +95,7 @@ public abstract class MVUsedUrls<T extends HistoryChangedEvent> {
 
     public synchronized void alleLoeschen() {
         listeUrls.clear();
-        listeUrlsSortDate.clear();
+        urlList.clear();
 
         try {
             Files.deleteIfExists(urlPath);
@@ -113,7 +111,7 @@ public abstract class MVUsedUrls<T extends HistoryChangedEvent> {
     }
 
     public synchronized List<MVUsedUrl> getSortedList() {
-        ArrayList<MVUsedUrl> ret = new ArrayList<>(listeUrlsSortDate);
+        ArrayList<MVUsedUrl> ret = new ArrayList<>(urlList);
         GermanStringSorter sorter = GermanStringSorter.getInstance();
         ret.sort((o1, o2) -> sorter.compare(o1.getTitel(), o2.getTitel()));
 
@@ -156,7 +154,7 @@ public abstract class MVUsedUrls<T extends HistoryChangedEvent> {
         }
 
         listeUrls.clear();
-        listeUrlsSortDate.clear();
+        urlList.clear();
 
         listeBauen();
 
@@ -209,7 +207,7 @@ public abstract class MVUsedUrls<T extends HistoryChangedEvent> {
         }
 
         listeUrls.clear();
-        listeUrlsSortDate.clear();
+        urlList.clear();
 
         listeBauen();
 
@@ -219,7 +217,7 @@ public abstract class MVUsedUrls<T extends HistoryChangedEvent> {
     public synchronized void zeileSchreiben(String thema, String titel, String url) {
         String datum = SDF.format(new Date());
         listeUrls.add(url);
-        listeUrlsSortDate.add(new MVUsedUrl(datum, thema, titel, url));
+        urlList.add(new MVUsedUrl(datum, thema, titel, url));
 
         checkUrlFilePath();
 
@@ -248,7 +246,7 @@ public abstract class MVUsedUrls<T extends HistoryChangedEvent> {
                 listeUrls.add(film.getUrlHistory());
 
                 final MVUsedUrl usedUrl = new MVUsedUrl(datum, film.getThema(), film.getTitle(), film.getUrlHistory());
-                listeUrlsSortDate.add(usedUrl);
+                urlList.add(usedUrl);
 
                 bufferedWriter.write(usedUrl.getUsedUrl());
             }
@@ -278,17 +276,23 @@ public abstract class MVUsedUrls<T extends HistoryChangedEvent> {
         //LinkedList mit den URLs aus dem Logfile bauen
         checkUrlFilePath();
 
+        var writeLock = urlList.getReadWriteLock().writeLock();
         try (InputStream is = Files.newInputStream(urlPath);
              InputStreamReader isr = new InputStreamReader(is);
              LineNumberReader in = new LineNumberReader(isr)) {
             String zeile;
+
+            writeLock.lock();
             while ((zeile = in.readLine()) != null) {
                 MVUsedUrl mvuu = MVUsedUrl.getUrlAusZeile(zeile);
                 listeUrls.add(mvuu.getUrl());
-                listeUrlsSortDate.add(mvuu);
+                //listeUrlsSortDate.add(mvuu);
+                urlList.add(mvuu);
             }
         } catch (Exception ex) {
             logger.error("listeBauen()", ex);
+        } finally {
+            writeLock.unlock();
         }
     }
 
@@ -309,18 +313,24 @@ public abstract class MVUsedUrls<T extends HistoryChangedEvent> {
         private void zeilenSchreiben() {
             checkUrlFilePath();
 
+            var writeLock = urlList.getReadWriteLock().writeLock();
             try (OutputStream os = Files.newOutputStream(urlPath, StandardOpenOption.APPEND);
                  OutputStreamWriter osw = new OutputStreamWriter(os);
                  BufferedWriter bufferedWriter = new BufferedWriter(osw)) {
+                writeLock.lock();
                 for (MVUsedUrl mvuu : mvuuList) {
                     listeUrls.add(mvuu.getUrl());
-                    listeUrlsSortDate.add(mvuu);
+                    urlList.add(mvuu);
 
                     bufferedWriter.write(mvuu.getUsedUrl());
                 }
             } catch (Exception ex) {
                 logger.error("zeilenSchreiben()", ex);
             }
+            finally {
+                writeLock.unlock();
+            }
+
             sendChangeMessage();
         }
     }
